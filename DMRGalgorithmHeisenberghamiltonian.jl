@@ -14,11 +14,12 @@ function heisenberg_mpo(N)
   end
   #Convert these terms into an MPO
   H = MPO(os,sites)
-  return H
+  return H, sites
 end
-H = heisenberg_mpo(100)
+H, sites = heisenberg_mpo(100)
 
 #Prepare initial state MPS
+N = length(sites)
 state = [iodd(n) ? "Up" : "Dn" for n=1:N]
 psi0_i = MPS(sites,state)
 #Do 10 sweeps of DMRG, gradually
