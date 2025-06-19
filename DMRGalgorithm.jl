@@ -1,6 +1,6 @@
 #Prepare initial state MPS
 state = [iodd(n) ? "Up" : "Dn" for n=1:N]
-psi0_i = MPS (sites,state)
+psi0_i = MPS(sites,state)
 #Do 10 sweeps of DMRG, gradually
 #increasing the maximum MPS
 # bond dimension
