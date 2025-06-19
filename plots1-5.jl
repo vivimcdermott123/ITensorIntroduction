@@ -27,7 +27,7 @@ end
 function calculate_gap(L; J=1.0, maxdim=100)
     H, sites = heisenberg_mpo(L; J=J)
     E0, psi_gs = run_dmrg(H, sites; maxdim=maxdim)
-    E1, psi_ex = dmrg(H, [psi_gs]; nsweeps=10, maxdim=maxdim, silent=true)
+    E1, psi_ex = dmrg(H, [psi_gs]; nsweeps=10, maxdim=maxdim)
     return E1 - E0
 end
 
@@ -78,7 +78,7 @@ function plot_all()
         title="4. Magnetization Profile")
 
     ## 5. Excited vs Ground state local observables
-    _, psi_ex = dmrg(H, [psi_gs]; nsweeps=10, maxdim=100, silent=true)
+    _, psi_ex = dmrg(H, [psi_gs]; nsweeps=10, maxdim=100)
     magnetization_ex = magnetization_profile(psi_ex, sites)
     plt5 = plot(1:L, magnetization, label="Ground State", xlabel="Site",
         ylabel="⟨Sz⟩", title="5. Excited vs Ground State Magnetization", marker=:o)
