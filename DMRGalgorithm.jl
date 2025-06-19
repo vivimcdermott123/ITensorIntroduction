@@ -1,3 +1,7 @@
+#Initialization
+julia
+using ITensors, ITensorMPS
+
 function heisenberg_mpo(N)
   #Make N S-1/2 spin indices
   sites = siteinds("S=1/2", N)
