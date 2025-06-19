@@ -12,7 +12,7 @@ function heisenberg_mpo(N)
   H = MPO(os,sites)
   return H
 end
-H= heisenberg_mpo(100)
+H = heisenberg_mpo(100)
 
 #Prepare initial state MPS
 state = [iodd(n) ? "Up" : "Dn" for n=1:N]
