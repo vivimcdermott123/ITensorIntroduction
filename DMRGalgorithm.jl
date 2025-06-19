@@ -1,3 +1,19 @@
+function heisenberg_mpo(N)
+  #Make N S-1/2 spin indices
+  sites = siteinds("S=1/2", N)
+  #input operator terms
+  os = OpSum()
+  for i=1:N-1
+    os += "Sz",I,"Sz",i+1
+    os += 1/2,"S+",I,"S-",i+1
+    os += 1/2,"S-",I,"S+",i+1
+  end
+  #Convert these terms into an MPO
+  H = MPO(os,sites)
+  return H
+end
+H= heisenberg_mpo(100)
+
 #Prepare initial state MPS
 state = [iodd(n) ? "Up" : "Dn" for n=1:N]
 psi0_i = MPS(sites,state)
