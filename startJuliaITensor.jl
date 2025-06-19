@@ -1,10 +1,13 @@
-rm -rf ~/.julia/environments
-rm -rf ~/.julia/packages/ITensors
-
-#relaunchingjulia 
+#creatingnewfolder
+mkdir ~/itensor_test
+cd ~/itensor_test
+#startjuliainfolder
 julia
+#activate/installITensor
 import Pkg
-Pkg.add("ITensors")
-#checkinstallation
+Pkg.activate(".")           # activate local project
+Pkg.add("ITensors")         # install ITensors cleanly
+#tryloading
 using ITensors
 @which MPS
+
