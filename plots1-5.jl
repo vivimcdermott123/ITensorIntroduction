@@ -8,7 +8,7 @@ function plot_all()
                title="1. Energy Gap vs System Size", legend=false)
 
            # Remaining plots use one chain length
-           L = 20
+           L = 100
            H, sites = heisenberg_mpo(L)
            nup_gs = div(L,2)
            psi0_gs = MPS(sites, initial_state_fixed_sz(sites, nup_gs))
