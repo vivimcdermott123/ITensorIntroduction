@@ -66,7 +66,7 @@ function plot_all()
         title="1. Energy Gap vs System Size", legend=false)
 
     # Setup single L for other analyses
-    L = 50
+    L = 49
     H, sites = heisenberg_mpo(L)
     psi0_gs = MPS(sites, initial_state_fixed_sz(sites, div(L,2)))
     _, psi_gs = run_dmrg(H, psi0_gs; maxdim=100)
