@@ -51,6 +51,7 @@ function entanglement_entropy(psi, b)
     s = s[s .> 1e-12]
     return -sum(s.^2 .* log.(s.^2))
 end
+#indicieissueabove?
 
 # Corrected magnetization profile calculation ⟨Sz⟩
 function magnetization_profile(psi, sites)
