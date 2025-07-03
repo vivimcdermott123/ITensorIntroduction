@@ -78,8 +78,8 @@ function plot_all()
         title="2. Spin-Spin Correlation", marker=:circle, legend=false)
 
     # 3. Entanglement Entropy S(bond)
-    ent_entropy = [entanglement_entropy(psi_gs, b) for b in 2:L-1]
-    plt3 = plot(2:L-1, ent_entropy, xlabel="Bond Index", ylabel="Entanglement Entropy",
+    ent_entropy = [entanglement_entropy(psi_gs, b) for b in 1:L-1]
+    plt3 = plot(1:L-1, ent_entropy, xlabel="Bond Index", ylabel="Entanglement Entropy",
         title="3. Entanglement Entropy", marker=:diamond, legend=false)
 
     # 4. Magnetization Profile ⟨Sz⟩
