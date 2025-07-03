@@ -30,8 +30,8 @@ end
 # Calculate energy gap Δ(L)
 function calculate_gap_sz(L; J=1.0, maxdim=100)
     H, sites = heisenberg_mpo(L; J=J)
-    psi0_gs = MPS(sites, initial_state_fixed_sz(sites, 0))
-    psi0_ex = MPS(sites, initial_state_fixed_sz(sites, 1))
+    psi0_gs = MPS(sites, initial_state_fixed_sz(sites, div(L,2)))
+    psi0_ex = MPS(sites, initial_state_fixed_sz(sites, div(L,2)+1))
     E0, _ = run_dmrg(H, psi0_gs; maxdim=maxdim)
     E1, _ = run_dmrg(H, psi0_ex; maxdim=maxdim)
     return E1 - E0
