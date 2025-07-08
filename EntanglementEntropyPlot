@@ -44,9 +44,7 @@ function entanglement_entropy(psi, b)
     return -sum(s.^2 .* log.(s.^2))
 end
 
-------------------------
-        #NOTES
-------------------------
+#NOTES
 #og comment: indicieissueabove? 
  #CHATGPTRESPONSE
 #1.The SVD on psi[b] is not guaranteed to be meaningful unless psi is left-orthogonalized up to site b.
@@ -65,16 +63,14 @@ end
 
 #old function for reference: 
 #function entanglement_entropy(psi, b)
-   # orthogonalize!(psi, b)
-  #  U, S, V = svd(psi[b], (linkind(psi, b-1),))
-  #  s = diag(S)
-  #  s = s[s .> 1e-12]
- #   return -sum(s.^2 .* log.(s.^2))
+   #orthogonalize!(psi, b)
+  #U, S, V = svd(psi[b], (linkind(psi, b-1),))
+  #s = diag(S)
+  #s = s[s .> 1e-12]
+ #return -sum(s.^2 .* log.(s.^2))
 #end
 
--------------
   #ENDNOTES
--------------
 
 # Main function to plot all analyses
 function plot_all()
