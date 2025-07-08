@@ -29,11 +29,21 @@ end
 
 
 # Compute entanglement entropy across a bond
-function entanglement_entropy(psi, b)
-    svals = schmidtvals(psi, b)
-    svals = svals[svals .> 1e-12]
-    return -sum(svals.^2 .* log.(svals.^2))
+function svdvals(psi, b)
+    # Orthogonalize to b, as above
+    U, S, V = svd(psi[b], (linkind(psi, b-1),))
+    s = diag(S)  # S is diagonal
+    return s / norm(s)  # Normalize, just in case
 end
+
+function entanglement_entropy(psi, b)
+    orthogonalize!(psi, b)
+    s = svdvals(psi, b)
+    # Remove zero/negative values (numerical noise)
+    s = s[s .> 1e-12]
+    return -sum(s.^2 .* log.(s.^2))
+end
+
 
 #indicieissueabove? #-->The SVD on psi[b] is not guaranteed to be meaningful unless psi is left-orthogonalized up to site b.
 
