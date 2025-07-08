@@ -13,6 +13,16 @@ function heisenberg_mpo(N; J=1.0, S="S=1/2")
     end
     return MPO(os, sites), sites
 end
+# Initialize state with fixed number of up spins (total Sz)
+function initial_state_fixed_sz(sites, nup)
+    N = length(sites)
+    return [i <= nup ? "Up" : "Dn" for i in 1:N]
+end
+# Proper calculation of full correlation matrix ⟨SzᵢSzⱼ⟩
+function correlation_profile(psi, sites, center)
+    corr_matrix = correlation_matrix(psi, "Sz", "Sz"; sites=sites, site_range=1:length(sites), ishermitian=true)
+    return corr_matrix[center, :]
+end
 # Compute entanglement entropy across a bond
 function entanglement_entropy(psi, b)
     orthogonalize!(psi, b)
