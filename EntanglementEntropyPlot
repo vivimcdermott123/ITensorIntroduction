@@ -1,0 +1,30 @@
+julia 
+using ITensors
+using ITensorMPS
+using Plots
+# Construct the Heisenberg Hamiltonian as an MPO
+function heisenberg_mpo(N; J=1.0, S="S=1/2")
+    sites = siteinds(S, N)
+    os = OpSum()
+    for i in 1:N-1
+        os += 0.5J, "S+", i, "S-", i+1
+        os += 0.5J, "S-", i, "S+", i+1
+        os += J, "Sz", i, "Sz", i+1
+    end
+    return MPO(os, sites), sites
+end
+# Compute entanglement entropy across a bond
+function entanglement_entropy(psi, b)
+    orthogonalize!(psi, b)
+    U, S, V = svd(psi[b], (linkind(psi, b-1),))
+    s = diag(S)
+    s = s[s .> 1e-12]
+    return -sum(s.^2 .* log.(s.^2))
+end
+#indicieissueabove?
+   # 3. Entanglement Entropy S(bond)
+    ent_entropy = [entanglement_entropy(psi_gs, b) for b in 2:L]
+    plt3 = plot(2:L, ent_entropy, xlabel="Bond Index", ylabel="Entanglement Entropy",
+        title="3. Entanglement Entropy", marker=:diamond, legend=false)
+# Execute all plots
+plot_all()
