@@ -44,20 +44,37 @@ function entanglement_entropy(psi, b)
     return -sum(s.^2 .* log.(s.^2))
 end
 
+------------------------
+        #NOTES
+------------------------
+#og comment: indicieissueabove? 
+ #CHATGPTRESPONSE
+#1.The SVD on psi[b] is not guaranteed to be meaningful unless psi is left-orthogonalized up to site b.
 
-#indicieissueabove? #-->The SVD on psi[b] is not guaranteed to be meaningful unless psi is left-orthogonalized up to site b.
+#2.The link index logic might fail if linkind(psi, b-1) doesn't exist (for b=1 or edge cases).
 
-#The link index logic might fail if linkind(psi, b-1) doesn't exist (for b=1 or edge cases).
+#3.The way you extract the singular values (with diag(S)) may not work if S is a vector (which it often is in ITensor).
 
-#The way you extract the singular values (with diag(S)) may not work if S is a vector (which it often is in ITensor).
+#4.Here’s a robust, standard way to calculate entanglement entropy at bond b in ITensor.jl:
 
-#Here’s a robust, standard way to calculate entanglement entropy at bond b in ITensor.jl:
+#5.Left-orthogonalize to site b.
 
-#Left-orthogonalize to site b.
+#6.SVD psi[b] over the bond connecting sites b-1 and b.
 
-#SVD psi[b] over the bond connecting sites b-1 and b.
+#7.The singular values are the Schmidt coefficients
 
-#The singular values are the Schmidt coefficient
+#old function for reference: 
+#function entanglement_entropy(psi, b)
+   # orthogonalize!(psi, b)
+  #  U, S, V = svd(psi[b], (linkind(psi, b-1),))
+  #  s = diag(S)
+  #  s = s[s .> 1e-12]
+ #   return -sum(s.^2 .* log.(s.^2))
+#end
+
+-------------
+  #ENDNOTES
+-------------
 
 # Main function to plot all analyses
 function plot_all()
