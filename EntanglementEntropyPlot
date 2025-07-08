@@ -18,11 +18,11 @@ function initial_state_fixed_sz(sites, nup)
     N = length(sites)
     return [i <= nup ? "Up" : "Dn" for i in 1:N]
 end
-# Proper calculation of full correlation matrix ⟨SzᵢSzⱼ⟩
-function correlation_profile(psi, sites, center)
-    corr_matrix = correlation_matrix(psi, "Sz", "Sz"; sites=sites, site_range=1:length(sites), ishermitian=true)
-    return corr_matrix[center, :]
-end
+    # Setup single L for other analyses
+    L = 10
+    H, sites = heisenberg_mpo(L)
+    psi0_gs = MPS(sites, initial_state_fixed_sz(sites, div(L,2)))
+    _, psi_gs = run_dmrg(H, psi0_gs; maxdim=100)
 # Compute entanglement entropy across a bond
 function entanglement_entropy(psi, b)
     orthogonalize!(psi, b)
