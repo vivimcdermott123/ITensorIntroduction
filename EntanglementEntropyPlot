@@ -73,7 +73,7 @@ function plot_all()
         title="3. Entanglement Entropy", marker=:diamond, legend=false)
 
     # Arrange all plots
-    plot(plt1, plt2, plt3, plt4, plt5, layout=(3,2), size=(1200,1000))
+    plot(plt3, layout=(3,2), size=(1200,1000))
 end
 
 # Execute all plots
