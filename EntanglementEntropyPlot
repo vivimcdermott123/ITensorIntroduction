@@ -45,6 +45,7 @@ function entanglement_entropy(psi, b)
 end
 
 #NOTES
+#line 80 to change site # 
 #og comment: indicieissueabove? 
  #CHATGPTRESPONSE
 #1.The SVD on psi[b] is not guaranteed to be meaningful unless psi is left-orthogonalized up to site b.
