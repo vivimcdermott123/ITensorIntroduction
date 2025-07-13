@@ -1,7 +1,7 @@
 using ITensors
 using ITensorMPS
 using Plots
-using LinearAlgebra
+using LinearAlgebra #line 19 set nsweeps #line 107 to modify chain-length
 
 # Construct the Heisenberg Hamiltonian as an MPO
 function heisenberg_mpo(N; J=1.0, S="S=1/2")
