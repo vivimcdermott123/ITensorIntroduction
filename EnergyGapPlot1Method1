@@ -1,7 +1,7 @@
 using ITensors
 using ITensorMPS
 using Plots
-using LinearAlgebra #line 19 set nsweeps #line 107 to modify chain-length
+using LinearAlgebra
 
 # Construct the Heisenberg Hamiltonian as an MPO
 function heisenberg_mpo(N; J=1.0, S="S=1/2")
@@ -16,7 +16,7 @@ function heisenberg_mpo(N; J=1.0, S="S=1/2")
 end
 
 # FIXED: Proper excited state DMRG calculation
-function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=5)
+function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=30)
     println("Calculating gap for L=$L using FIXED DMRG method...")
     H, sites = heisenberg_mpo(L; J=J)
     
@@ -98,13 +98,100 @@ function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=5)
     return gap
 end
 
+# FIX 5: Alternative method using different quantum numbers
+function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
+    println("Calculating gap for L=$L using quantum number sectors...")
+    H, sites = heisenberg_mpo(L; J=J)
+    
+    sweeps = Sweeps(nsweeps)
+    setmaxdim!(sweeps, maxdim)
+    setcutoff!(sweeps, 1e-10)
+    setnoise!(sweeps, 1e-10)
+    
+    # Find ground state (should be in Sz = 0 sector for even L)
+    psi0 = randomMPS(sites, linkdims=10)
+    E0, psi0 = dmrg(H, psi0, sweeps; outputlevel=0)
+    
+    # Calculate total Sz of ground state
+    total_sz = 0.0
+    for i in 1:L
+        sz_op = op("Sz", sites[i])
+        total_sz += inner(psi0, apply(sz_op, psi0; cutoff=1e-12))
+    end
+    println("Ground state: E0 = $E0, total Sz = $total_sz")
+    
+    # Try to find excited state in different Sz sectors
+    excited_energies = Float64[]
+    
+    # Create initial states with different Sz values
+    for sz_target in [-1, 0, 1]
+        if sz_target == 0
+            continue  # Skip Sz=0 as ground state is likely there
+        end
+        
+        # Create initial state with desired Sz
+        nup = div(L, 2) + sz_target
+        if nup >= 0 && nup <= L
+            println("Trying Sz = $sz_target sector (nup = $nup)...")
+            
+            # Create product state with correct Sz
+            state = [i <= nup ? "Up" : "Dn" for i in 1:L]
+            psi_trial = MPS(sites, state)
+            
+            E_trial, psi_trial = dmrg(H, psi_trial, sweeps; outputlevel=0)
+            
+            # Check if this is different from ground state
+            overlap = abs(inner(psi0, psi_trial))
+            println("  Sz = $sz_target: E = $E_trial, overlap with GS = $overlap")
+            
+            if overlap < 0.99
+                push!(excited_energies, E_trial)
+            end
+        end
+    end
+    
+    # Find minimum excited state energy
+    if !isempty(excited_energies)
+        E1 = minimum(excited_energies)
+        gap = E1 - E0
+        println("Best excited state energy: $E1")
+        println("Energy gap: $gap")
+        return max(gap, 0.0)  # Ensure non-negative
+    else
+        println("No excited states found in different Sz sectors")
+        return 0.0
+    end
+end
+
+# FIX 6: Hybrid method combining both approaches
+function calculate_gap_dmrg_robust(L; J=1.0, maxdim=200, nsweeps=30)
+    # Try the orthogonal state method first
+    gap1 = calculate_gap_dmrg_fixed(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+    
+    # Also try the quantum number sector method
+    gap2 = calculate_gap_dmrg_sectors(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+    
+    # Take the minimum non-zero gap
+    gaps = [gap1, gap2]
+    valid_gaps = filter(x -> x > 1e-10, gaps)
+    
+    if !isempty(valid_gaps)
+        final_gap = minimum(valid_gaps)
+        println("Final gap (minimum of methods): $final_gap")
+        return final_gap
+    else
+        println("No valid gaps found")
+        return 0.0
+    end
+end
+
 # Main plotting function using the fixed method
 function plot_gap_dmrg_fixed()
     # CHANGE THIS LINE TO EXTEND SYSTEM SIZES:
     # Current: Ls = 4:2:12 means systems of size 4, 6, 8, 10, 12
     # For larger systems: Ls = 4:2:20 or Ls = 6:2:16, etc.
     # WARNING: Larger systems take much longer to compute!
-    Ls = 4:2:20  # ← MODIFY THIS LINE FOR DIFFERENT SYSTEM SIZES
+    Ls = 4:2:12  # ← MODIFY THIS LINE FOR DIFFERENT SYSTEM SIZES
     gaps = Float64[]
     
     for L in Ls
