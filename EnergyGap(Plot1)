@@ -6,19 +6,22 @@ using LinearAlgebra #for eigenvalue operations
 
 
 #1. Construct the Heisenberg Hamiltonian as an MPO
-
 function heisenberg_mpo(N; J=1.0, S="S=1/2")
-#N = number of spin sites J = coupling strength S = spin-type (S=1/2,1,2,...)
     sites = siteinds(S, N)
-#creating site indices to define the local Hilbert space at each site 
     os = OpSum()
-    for i in 1:N-1 #loops over all nearest-neighbor pairs (i,i+1)
+    for i in 1:N-1
         os += 0.5*J, "S+", i, "S-", i+1
         os += 0.5*J, "S-", i, "S+", i+1
         os += J, "Sz", i, "Sz", i+1
     end
     #return MPO(os, sites), sites
 #end
+#Notes on function heisenberg_mpo
+#N = number of sites in spin-chain J = coupling strength (default 1.0) S = spin-type (S=1/2,1,2, e.t.c..?) (line 1)
+#Creates site indices: site indices define the local Hilbert space at each site (line 2) 
+# OpSum() is ITensor's way to specify a sum of operators (line 3)
+# i in 1:N-1 --> loops over all nearest-neighbor pairs (i, i+1) (line 4)
+# constructing Heisenberg Hamiltonian using OpSum() (lines 5-7) 
 
 #overall, function converts OpSum into an MPO (Matrix Product Operator), which is the tensor network representation of an operator. MPOs are efficient for 1D systems and can be applied to MPS states. 
 
