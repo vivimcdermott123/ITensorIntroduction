@@ -1,11 +1,9 @@
-#0. importing packages
 using ITensors
 using ITensorMPS
 using Plots
-using LinearAlgebra #for eigenvalue operations 
+using LinearAlgebra
 
-
-#1. Construct the Heisenberg Hamiltonian as an MPO
+# Construct the Heisenberg Hamiltonian as an MPO
 function heisenberg_mpo(N; J=1.0, S="S=1/2")
     sites = siteinds(S, N)
     os = OpSum()
@@ -14,26 +12,13 @@ function heisenberg_mpo(N; J=1.0, S="S=1/2")
         os += 0.5*J, "S-", i, "S+", i+1
         os += J, "Sz", i, "Sz", i+1
     end
-    #return MPO(os, sites), sites
-#end
-#Notes on function heisenberg_mpo
-#N = number of sites in spin-chain J = coupling strength (default 1.0) S = spin-type (S=1/2,1,2, e.t.c..?) (line 1)
-#Creates site indices: site indices define the local Hilbert space at each site (line 2) 
-# OpSum() is ITensor's way to specify a sum of operators (line 3)
-# i in 1:N-1 --> loops over all nearest-neighbor pairs (i, i+1) (line 4)
-# constructing Heisenberg Hamiltonian using OpSum() (lines 5-7) 
+    return MPO(os, sites), sites
+end
 
-#overall, function converts OpSum into an MPO (Matrix Product Operator), which is the tensor network representation of an operator. MPOs are efficient for 1D systems and can be applied to MPS states. 
-
-
-# 2. (FIXED): Proper excited state DMRG calculation
+# FIXED: Proper excited state DMRG calculation
 function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
     println("Calculating gap for L=$L using FIXED DMRG method...")
     H, sites = heisenberg_mpo(L; J=J)
-
-
-#Notes on function calculate_gap_dmrg_fixed 
-#DMRG is an algorithm to find the ground state of quantum many body systems 
     
     # Set up sweeps
     sweeps = Sweeps(nsweeps)
@@ -53,13 +38,7 @@ function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
     
     # Use the proper excited state DMRG method
     # This finds the lowest energy state orthogonal to psi0
-
-    E1, psi1 = dmrg(H, [psi0], psi1, sweeps; outputlevel=0, weight=20.0) 
-
-#---> weight 20 is chosen to ensure orthogonality while not disturbing convergence. low weights may not enforce orthogonality enough and incorrectly superimpose ground/excited states, while high waits may be too focused on orthogonality and delay/mess up convergence 
-
-
-
+    E1, psi1 = dmrg(H, [psi0], psi1, sweeps; outputlevel=0, weight=20.0)
     
     # Verify orthogonality
     overlap = abs(inner(psi0, psi1))
@@ -208,7 +187,11 @@ end
 
 # Main plotting function using the fixed method
 function plot_gap_dmrg_fixed()
-    Ls = 4:2:20      #CHANGE THIS LINE FOR MORE SITES!
+    # CHANGE THIS LINE TO EXTEND SYSTEM SIZES:
+    # Current: Ls = 4:2:12 means systems of size 4, 6, 8, 10, 12
+    # For larger systems: Ls = 4:2:20 or Ls = 6:2:16, etc.
+    # WARNING: Larger systems take much longer to compute!
+    Ls = 4:2:12  # ← MODIFY THIS LINE FOR DIFFERENT SYSTEM SIZES
     gaps = Float64[]
     
     for L in Ls
