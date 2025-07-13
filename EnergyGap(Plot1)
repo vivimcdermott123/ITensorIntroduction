@@ -1,0 +1,243 @@
+#0. importing packages
+using ITensors
+using ITensorMPS
+using Plots
+using LinearAlgebra #for eigenvalue operations 
+
+
+#1. Construct the Heisenberg Hamiltonian as an MPO
+
+function heisenberg_mpo(N; J=1.0, S="S=1/2")
+#N = number of spin sites J = coupling strength S = spin-type (S=1/2,1,2,...)
+    sites = siteinds(S, N)
+#creating site indices to define the local Hilbert space at each site 
+    os = OpSum()
+    for i in 1:N-1 #loops over all nearest-neighbor pairs (i,i+1)
+        os += 0.5*J, "S+", i, "S-", i+1
+        os += 0.5*J, "S-", i, "S+", i+1
+        os += J, "Sz", i, "Sz", i+1
+    end
+    #return MPO(os, sites), sites
+#end
+
+#overall, function converts OpSum into an MPO (Matrix Product Operator), which is the tensor network representation of an operator. MPOs are efficient for 1D systems and can be applied to MPS states. 
+
+
+# 2. (FIXED): Proper excited state DMRG calculation
+function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
+    println("Calculating gap for L=$L using FIXED DMRG method...")
+    H, sites = heisenberg_mpo(L; J=J)
+
+
+#Notes on function calculate_gap_dmrg_fixed 
+#DMRG is an algorithm to find the ground state of quantum many body systems 
+    
+    # Set up sweeps
+    sweeps = Sweeps(nsweeps)
+    setmaxdim!(sweeps, maxdim)
+    setcutoff!(sweeps, 1e-10)
+    setnoise!(sweeps, 1e-10)  # Add noise for better convergence
+    
+    # FIX 1: Find ground state without Sz constraint
+    println("Finding ground state...")
+    psi0 = randomMPS(sites, linkdims=10)
+    E0, psi0 = dmrg(H, psi0, sweeps; outputlevel=0)
+    println("Ground state energy: $E0")
+    
+    # FIX 2: Find first excited state orthogonal to ground state
+    println("Finding first excited state...")
+    psi1 = randomMPS(sites, linkdims=10)
+    
+    # Use the proper excited state DMRG method
+    # This finds the lowest energy state orthogonal to psi0
+
+    E1, psi1 = dmrg(H, [psi0], psi1, sweeps; outputlevel=0, weight=20.0) 
+
+#---> weight 20 is chosen to ensure orthogonality while not disturbing convergence. low weights may not enforce orthogonality enough and incorrectly superimpose ground/excited states, while high waits may be too focused on orthogonality and delay/mess up convergence 
+
+
+
+    
+    # Verify orthogonality
+    overlap = abs(inner(psi0, psi1))
+    println("First excited state energy: $E1")
+    println("Overlap between ground and excited state: $overlap")
+    
+    # FIX 3: More robust excited state search if needed
+    if overlap > 0.1  # States are not sufficiently orthogonal
+        println("States not orthogonal enough, trying alternative method...")
+        
+        # Try different initial states for excited state
+        best_E1 = Inf
+        best_psi1 = psi1
+        
+        for trial in 1:3
+            println("  Trial $trial...")
+            psi_trial = randomMPS(sites, linkdims=10)
+            
+            # Use different random seed by applying random gates
+            for i in 1:min(5, L-1)
+                idx = rand(1:L-1)
+                gate = randomITensor(sites[idx], sites[idx+1], sites[idx]', sites[idx+1]')
+                psi_trial = apply(gate, psi_trial; cutoff=1e-10)
+                normalize!(psi_trial)
+            end
+            
+            E_trial, psi_trial = dmrg(H, [psi0], psi_trial, sweeps; outputlevel=0, weight=20.0)
+            overlap_trial = abs(inner(psi0, psi_trial))
+            
+            println("    Trial $trial: E = $E_trial, overlap = $overlap_trial")
+            
+            if overlap_trial < 0.1 && E_trial < best_E1
+                best_E1 = E_trial
+                best_psi1 = psi_trial
+            end
+        end
+        
+        if best_E1 < Inf
+            E1 = best_E1
+            psi1 = best_psi1
+            println("Best excited state energy: $E1")
+        else
+            println("Warning: Could not find good excited state")
+            return 0.0
+        end
+    end
+    
+    gap = E1 - E0
+    println("Energy gap: $gap")
+    
+    # FIX 4: Sanity check - gap should be positive
+    if gap < 0
+        println("Warning: Negative gap detected, this suggests numerical issues")
+        return 0.0
+    end
+    
+    return gap
+end
+
+# FIX 5: Alternative method using different quantum numbers
+function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
+    println("Calculating gap for L=$L using quantum number sectors...")
+    H, sites = heisenberg_mpo(L; J=J)
+    
+    sweeps = Sweeps(nsweeps)
+    setmaxdim!(sweeps, maxdim)
+    setcutoff!(sweeps, 1e-10)
+    setnoise!(sweeps, 1e-10)
+    
+    # Find ground state (should be in Sz = 0 sector for even L)
+    psi0 = randomMPS(sites, linkdims=10)
+    E0, psi0 = dmrg(H, psi0, sweeps; outputlevel=0)
+    
+    # Calculate total Sz of ground state
+    total_sz = 0.0
+    for i in 1:L
+        sz_op = op("Sz", sites[i])
+        total_sz += inner(psi0, apply(sz_op, psi0; cutoff=1e-12))
+    end
+    println("Ground state: E0 = $E0, total Sz = $total_sz")
+    
+    # Try to find excited state in different Sz sectors
+    excited_energies = Float64[]
+    
+    # Create initial states with different Sz values
+    for sz_target in [-1, 0, 1]
+        if sz_target == 0
+            continue  # Skip Sz=0 as ground state is likely there
+        end
+        
+        # Create initial state with desired Sz
+        nup = div(L, 2) + sz_target
+        if nup >= 0 && nup <= L
+            println("Trying Sz = $sz_target sector (nup = $nup)...")
+            
+            # Create product state with correct Sz
+            state = [i <= nup ? "Up" : "Dn" for i in 1:L]
+            psi_trial = MPS(sites, state)
+            
+            E_trial, psi_trial = dmrg(H, psi_trial, sweeps; outputlevel=0)
+            
+            # Check if this is different from ground state
+            overlap = abs(inner(psi0, psi_trial))
+            println("  Sz = $sz_target: E = $E_trial, overlap with GS = $overlap")
+            
+            if overlap < 0.99
+                push!(excited_energies, E_trial)
+            end
+        end
+    end
+    
+    # Find minimum excited state energy
+    if !isempty(excited_energies)
+        E1 = minimum(excited_energies)
+        gap = E1 - E0
+        println("Best excited state energy: $E1")
+        println("Energy gap: $gap")
+        return max(gap, 0.0)  # Ensure non-negative
+    else
+        println("No excited states found in different Sz sectors")
+        return 0.0
+    end
+end
+
+# FIX 6: Hybrid method combining both approaches
+function calculate_gap_dmrg_robust(L; J=1.0, maxdim=200, nsweeps=30)
+    # Try the orthogonal state method first
+    gap1 = calculate_gap_dmrg_fixed(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+    
+    # Also try the quantum number sector method
+    gap2 = calculate_gap_dmrg_sectors(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+    
+    # Take the minimum non-zero gap
+    gaps = [gap1, gap2]
+    valid_gaps = filter(x -> x > 1e-10, gaps)
+    
+    if !isempty(valid_gaps)
+        final_gap = minimum(valid_gaps)
+        println("Final gap (minimum of methods): $final_gap")
+        return final_gap
+    else
+        println("No valid gaps found")
+        return 0.0
+    end
+end
+
+# Main plotting function using the fixed method
+function plot_gap_dmrg_fixed()
+    Ls = 4:2:20      #CHANGE THIS LINE FOR MORE SITES!
+    gaps = Float64[]
+    
+    for L in Ls
+        println("\n--- Processing L = $L ---")
+        gap = calculate_gap_dmrg_robust(L; maxdim=200, nsweeps=30)
+        push!(gaps, gap)
+    end
+    
+    # Create the plot
+    plt = plot(Ls, gaps, marker=:o, xlabel="System Size L", ylabel="Energy Gap Δ",
+        title="Energy Gap vs System Size (Fixed DMRG Method)", legend=false, 
+        linewidth=2, markersize=6)
+    
+    # Add horizontal line at y=0 for reference
+    hline!([0.0], linestyle=:dash, color=:red, alpha=0.5, label="Zero gap")
+    
+    # Add 1/L scaling reference line for comparison
+    if length(gaps) > 1 && all(g -> g > 0, gaps)
+        # Fit to 1/L scaling
+        inv_L = 1.0 ./ Ls
+        # Simple linear fit: gap ≈ a/L
+        a_fit = sum(gaps .* inv_L) / sum(inv_L .* inv_L)
+        fitted_gaps = a_fit ./ Ls
+        
+        plot!(Ls, fitted_gaps, linestyle=:dash, color=:green, alpha=0.7, 
+              label="1/L scaling fit")
+    end
+    
+    display(plt)
+    return plt, gaps
+end
+
+# Execute the fixed version
+println("Running fixed DMRG energy gap calculation...")
+plt, gaps = plot_gap_dmrg_fixed()
