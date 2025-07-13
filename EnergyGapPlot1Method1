@@ -16,7 +16,7 @@ function heisenberg_mpo(N; J=1.0, S="S=1/2")
 end
 
 # FIXED: Proper excited state DMRG calculation
-function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
+function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=5)
     println("Calculating gap for L=$L using FIXED DMRG method...")
     H, sites = heisenberg_mpo(L; J=J)
     
@@ -99,7 +99,7 @@ function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
 end
 
 # FIX 5: Alternative method using different quantum numbers
-function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
+function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=5)
     println("Calculating gap for L=$L using quantum number sectors...")
     H, sites = heisenberg_mpo(L; J=J)
     
@@ -164,7 +164,7 @@ function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
 end
 
 # FIX 6: Hybrid method combining both approaches
-function calculate_gap_dmrg_robust(L; J=1.0, maxdim=200, nsweeps=30)
+function calculate_gap_dmrg_robust(L; J=1.0, maxdim=200, nsweeps=5)
     # Try the orthogonal state method first
     gap1 = calculate_gap_dmrg_fixed(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
     
@@ -196,7 +196,7 @@ function plot_gap_dmrg_fixed()
     
     for L in Ls
         println("\n--- Processing L = $L ---")
-        gap = calculate_gap_dmrg_robust(L; maxdim=200, nsweeps=30)
+        gap = calculate_gap_dmrg_robust(L; maxdim=200, nsweeps=5)
         push!(gaps, gap)
     end
     
