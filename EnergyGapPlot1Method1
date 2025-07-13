@@ -16,7 +16,7 @@ function heisenberg_mpo(N; J=1.0, S="S=1/2")
 end
 
 # FIXED: Proper excited state DMRG calculation
-function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
+function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=5)
     println("Calculating gap for L=$L using FIXED DMRG method...")
     H, sites = heisenberg_mpo(L; J=J)
     
