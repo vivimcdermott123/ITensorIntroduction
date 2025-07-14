@@ -85,25 +85,14 @@ function calculate_gap_dmrg_fixed(L; J=1.0, maxdim=200, nsweeps=10)
             return 0.0
         end
     end
-    
-    gap = E1 - E0
-    println("Energy gap: $gap")
-    
-    # FIX 4: Sanity check - gap should be positive
-    if gap < 0
-        println("Warning: Negative gap detected, this suggests numerical issues")
-        return 0.0
-    end
-    
-    return gap
-end
+
 
 # FIX 5: Alternative method using different quantum numbers
-function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
+function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, =10)
     println("Calculating gap for L=$L using quantum number sectors...")
     H, sites = heisenberg_mpo(L; J=J)
     
-    sweeps = Sweeps(nsweeps)
+    sweeps = Sweeps()
     setmaxdim!(sweeps, maxdim)
     setcutoff!(sweeps, 1e-10)
     setnoise!(sweeps, 1e-10)
@@ -144,86 +133,57 @@ function calculate_gap_dmrg_sectors(L; J=1.0, maxdim=200, nsweeps=30)
             overlap = abs(inner(psi0, psi_trial))
             println("  Sz = $sz_target: E = $E_trial, overlap with GS = $overlap")
             
-            if overlap < 0.99
+            if overlap < 0.1
                 push!(excited_energies, E_trial)
             end
         end
     end
+
+
+# FIXED: Proper magnetization profile calculation
+function magnetization_profile(psi, sites)
+    N = length(sites)
+    magnetization = zeros(Float64, N)
     
-    # Find minimum excited state energy
-    if !isempty(excited_energies)
-        E1 = minimum(excited_energies)
-        gap = E1 - E0
-        println("Best excited state energy: $E1")
-        println("Energy gap: $gap")
-        return max(gap, 0.0)  # Ensure non-negative
-    else
-        println("No excited states found in different Sz sectors")
-        return 0.0
+    for i in 1:N
+        # Calculate ⟨Sz⟩ at site i
+        orthogonalize!(psi, i)
+        magnetization[i] = real(scalar(dag(psi[i]) * op(sites, "Sz", i) * psi[i]))
     end
+    
+    return magnetization
 end
 
-# FIX 6: Hybrid method combining both approaches
-function calculate_gap_dmrg_robust(L; J=1.0, maxdim=200, nsweeps=30)
-    # Try the orthogonal state method first
-    gap1 = calculate_gap_dmrg_fixed(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+# Main function to plot magnetization comparison
+function plot_all()
+    L = 10
+    H, sites = heisenberg_mpo(L)
     
-    # Also try the quantum number sector method
-    gap2 = calculate_gap_dmrg_sectors(L; J=J, maxdim=maxdim, nsweeps=nsweeps)
+    # Ground state (Sz = 0)
+    println("Finding ground state...")
+    psi0 = MPS(sites, initial_state_fixed_sz(sites, div(L,2)))
+    E0, psi0 = run_dmrg(H, psi0_gs; maxdim=100, =20)
     
-    # Take the minimum non-zero gap
-    gaps = [gap1, gap2]
-    valid_gaps = filter(x -> x > 1e-10, gaps)
+    # Excited state (Sz = +1/2)
+    println("Finding excited state...")
+    E1, psi1 = find_excited_state(H, sites; maxdim=100, nsweeps=10)
     
-    if !isempty(valid_gaps)
-        final_gap = minimum(valid_gaps)
-        println("Final gap (minimum of methods): $final_gap")
-        return final_gap
-    else
-        println("No valid gaps found")
-        return 0.0
-    end
-end
-
-# Main plotting function using the fixed method
-function plot_gap_dmrg_fixed()
-    # CHANGE THIS LINE TO EXTEND SYSTEM SIZES:
-    # Current: Ls = 4:2:12 means systems of size 4, 6, 8, 10, 12
-    # For larger systems: Ls = 4:2:20 or Ls = 6:2:16, etc.
-    # WARNING: Larger systems take much longer to compute!
-    Ls = 4:2:12  # ← MODIFY THIS LINE FOR DIFFERENT SYSTEM SIZES
-    gaps = Float64[]
+    # Calculate magnetization profiles
+    mag_gs = magnetization_profile(psi0, sites)
+    mag_ex = magnetization_profile(psi1, sites)
     
-    for L in Ls
-        println("\n--- Processing L = $L ---")
-        gap = calculate_gap_dmrg_robust(L; maxdim=200, nsweeps=30)
-        push!(gaps, gap)
-    end
-    
-    # Create the plot
-    plt = plot(Ls, gaps, marker=:o, xlabel="System Size L", ylabel="Energy Gap Δ",
-        title="Energy Gap vs System Size (Fixed DMRG Method)", legend=false, 
+    # Create plot with proper scaling
+    plt5 = plot(1:L, mag_gs, label="Ground State", xlabel="Site",
+        ylabel="⟨Sz⟩", title="5. Magnetization: Ground vs Excited", 
+        marker=:o, linewidth=2, markersize=6)
+    plot!(plt5, 1:L, mag_ex, label="Excited State", marker=:square, 
         linewidth=2, markersize=6)
     
-    # Add horizontal line at y=0 for reference
-    hline!([0.0], linestyle=:dash, color=:red, alpha=0.5, label="Zero gap")
+    # Set y-axis limits to show meaningful scale
+    ylims!(plt5, -0.1, 0.6)
     
-    # Add 1/L scaling reference line for comparison
-    if length(gaps) > 1 && all(g -> g > 0, gaps)
-        # Fit to 1/L scaling
-        inv_L = 1.0 ./ Ls
-        # Simple linear fit: gap ≈ a/L
-        a_fit = sum(gaps .* inv_L) / sum(inv_L .* inv_L)
-        fitted_gaps = a_fit ./ Ls
-        
-        plot!(Ls, fitted_gaps, linestyle=:dash, color=:green, alpha=0.7, 
-              label="1/L scaling fit")
-    end
-    
-    display(plt)
-    return plt, gaps
+    return plt5
 end
 
-# Execute the fixed version
-println("Running fixed DMRG energy gap calculation...")
-plt, gaps = plot_gap_dmrg_fixed()
+# Execute the plot
+plot_all()
