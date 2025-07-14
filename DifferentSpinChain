@@ -1,0 +1,77 @@
+using ITensors
+using ITensorMPS
+using Plots
+
+# Correct way to define mixed spin chain sites explicitly
+function mixed_spin_chain_sites(N_spin1)
+    N_total = N_spin1 + 2
+    sites = Vector{Index}(undef, N_total)
+    # First site: spin-1/2
+    sites[1] = siteind("S=1/2"; n=1)
+    # Middle sites: spin-1
+    for i in 2:N_total-1
+        sites[i] = siteind("S=1"; n=i)
+    end
+    # Last site: spin-1/2
+    sites[N_total] = siteind("S=1/2"; n=N_total)
+    return sites
+end
+
+# Construct the Heisenberg Hamiltonian MPO for mixed spins
+function mixed_heisenberg_mpo(sites; J=1.0)
+    N = length(sites)
+    os = OpSum()
+    for i in 1:N-1
+        os += 0.5J, "S+", i, "S-", i+1
+        os += 0.5J, "S-", i, "S+", i+1
+        os += J, "Sz", i, "Sz", i+1
+    end
+    return MPO(os, sites)
+end
+
+# Run DMRG to find the ground state
+function run_dmrg(H, sites; maxdim=100, nsweeps=10, cutoff=1e-10)
+    psi0 = randomMPS(sites, linkdims=10)
+    sweeps = Sweeps(nsweeps)
+    setmaxdim!(sweeps, maxdim)
+    setcutoff!(sweeps, cutoff)
+    energy, psi = dmrg(H, psi0, sweeps)
+    return energy, psi
+end
+
+# Proper calculation of magnetization profile
+function magnetization_profile(psi, sites)
+    N = length(sites)
+    sz_profile = zeros(Float64, N)
+    for i in 1:N
+        orthogonalize!(psi, i)
+        val = scalar(dag(prime(psi[i], "Site")) * op(sites[i], "Sz") * psi[i])
+        sz_profile[i] = real(val)
+    end
+    return sz_profile
+end
+
+# Main function to set up and solve the problem
+function main()
+    N_spin1 = 10
+    sites = mixed_spin_chain_sites(N_spin1)
+
+    H = mixed_heisenberg_mpo(sites; J=1.0)
+
+    println("Running DMRG...")
+    energy, psi = run_dmrg(H, sites; maxdim=200, nsweeps=20)
+    println("Ground state energy: $energy")
+
+    mag_profile = magnetization_profile(psi, sites)
+    println("Magnetization profile: ", mag_profile)
+
+    plt = plot(1:length(sites), mag_profile, xlabel="Site",
+               ylabel="⟨Sz⟩", marker=:circle, linewidth=2,
+               title="Magnetization Profile (Spin-1/2 edges, Spin-1 bulk)",
+               legend=false)
+    hline!(plt, [0], linestyle=:dash, color=:black)
+
+    return plt
+end
+
+main()
